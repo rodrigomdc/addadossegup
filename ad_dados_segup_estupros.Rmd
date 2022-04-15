@@ -1,0 +1,434 @@
+---
+title: "Análise Exploratória de Dados sobre casos de estupros no estado do Pará durante o período da pandemia"
+author: "Rodrigo"
+date: "01/04/2022"
+output: html_document
+    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+## **Apresentação**
+
+A pandemia da covid-19 iniciada no ano de 2020 impactou na vida de todos ao redor do planeta em questões relacionadas a conviência, trabalho, saúde e até nos comportamentos das pessoas. Em relação aos comportamentos, tivemos que ficar confinados em nossas residências como uma forma de proteção ao contágio pelo vírus da covid-19. Porém, seria interessante analisar o comportamento de casos de estupros para ver se eles foram influenciados por este contexto de isolamento no estado do Pará. 
+
+A resposta para qualquer tipo de questionamento deve ser com base em dados. Para este trabalho, vamos usar os dados presentes na página do Portal da Transparência da Secretaria de Segurança Pública e Defesa Social do Pará - SEGUP/PA (<http://sistemas.segup.pa.gov.br/transparencia/>). Nela, é possível obter dados sobre questôes relacionadas ao número de casos de homicídios, latrocínios, estupros etc registrados em todos os municípios do estado. 
+
+## **A base**
+
+O portal fornece dados coletados entre todos os mêses dos anos de 2010 até 2021 (considerando que estamos em 2022), sendo eles estruturados em:
+
+- **Município**
+    - 144 municípios. 
+- **RISP**
+    - Regiões Integradas de Segurança Pública. 
+    - Em um total de 15 RISPs.
+    - Forma de organização e distribuição operacionaldos órgãos do Sistema Estadual de Segurança Pública e Defesa Social.
+- **Mêses do ano**
+    - Cada mês do ano é uma coluna na tabela
+
+Os valores numéricos correspondem a quantidade total de casos por mês para cada município do estado.
+
+### **Os dados**
+
+Os dados foram extraídos da página usando técnica de Webscraping por meio da biblioteca [rverst](https://rvest.tidyverse.org/). Após isso, foram salvos em dois arquivos em formato csv para que os dados possam ser usados sem ter que extraí-los novamente da página. Neste caso, vamos usar dados de 2020 e 2021. 
+
+Nome dos arquivos:
+
+- ocorrencia de estupros - pa 2020.csv
+- ocorrencia de estupros - pa 2021.csv
+
+### **Acessando os dados**
+
+```{r include=FALSE}
+#bibliotecas
+pacotes <- c("stringr",     #manipulacao de strings
+             "ggplot2",     #graficos
+             "tidyverse",   #manipulacao de dados
+             "viridis",     #palheta de cores
+             "gghighlight", #destaque de elementos no grafico
+             "plotly",      #interacao em graficos
+             "formattable", #tabela estilizada
+             "DT"           #tabela estilizada
+             )
+
+if(sum(as.numeric(!pacotes %in% installed.packages())) != 0){
+  instalador <- pacotes[!pacotes %in% installed.packages()]
+  for(i in 1:length(instalador)) {
+    install.packages(instalador, dependencies = T)
+    break()}
+  sapply(pacotes, require, character = T) 
+} else {
+  sapply(pacotes, require, character = T) 
+}
+
+library(stringr)
+library(tidyverse)
+library(ggplot2)
+library(viridis)
+library(gghighlight)
+library(plotly)
+library(formattable)
+```
+
+Vamos carregar os dados fazendo a leitura dos arquivos .csv
+
+```{r}
+dados_2020 <- read.csv("Data/ocorrencia de estupros - pa 2020.csv")
+dados_2021 <- read.csv("Data/ocorrencia de estupros - pa 2021.csv")
+```
+
+<br></br>
+
+**Ocorrências de estupros no ano de 2020:**
+
+<br></br>
+
+```{r echo=FALSE}
+#install.packages("DT")
+DT::datatable(dados_2020)
+```
+
+<br></br>
+
+**Ocorrências de estupros no ano de 2021:**
+
+<br></br>
+
+```{r echo=FALSE}
+#install.packages("DT")
+DT::datatable(dados_2021)
+```
+
+### **Ajustando as bases**
+
+A primeira coisa que vamos fazer é remover a coluna X das duas bases, pois ela não tem utilidade para a nossa análise. Além disso, a nossa base de dados relacionada ao ano de 2020 possui um problema de padronização de nome para o mês de julho. Todas as demais colunas estão com o padrão de 3 letras (JAN, FEV etc), porém a coluna para o mês de julho está como JULHO. Também falta padronizar o nome da coluna __MUNICIPIO__, pois, em relação a base de 2021, o ideal seria ela estar como __MUNICIPIOS__. Por fim, existem algumas diferenças entre os nomes de alguns municípios entre as tabelas de 2020 e 2021. 
+
+```{r}
+#Removendo as colunas X
+dados_2020$X <- NULL
+dados_2021$X <- NULL
+
+#Renomeando as colunas 1 e 9
+names(dados_2020)[1] <- "MUNICIPIOS"
+names(dados_2020)[9] <- "JUL"
+
+#Padronizando os nomes de alguns municipios do ano de 2021
+dados_2021$MUNICIPIOS <- str_replace_all(dados_2021$MUNICIPIOS, 
+                                         c("-" = " ", "D "= "D'"))
+```
+
+Outro processo que iremos realizar será transformar a nossa tabela de formato wide para formato longer. Aplicando isso, teremos uma  tabela em que os mêses não serão mais vistos como colunas e sim dados em uma coluna chamada de __MESES__.Além disso, a quantidade o ocorrências para cada mês será um dado em uma coluna na nova tabela. 
+```{r, message=FALSE }
+
+#Base em formato longer
+dados_long_2020 <- dados_2020 %>%
+  pivot_longer(-c(MUNICIPIOS, RISP), 
+               names_to = 'MESES', 
+               values_to = "Num Ocorrencias") %>%
+  arrange(RISP)
+
+dados_long_2021 <- dados_2021 %>%
+  pivot_longer(-c(MUNICIPIOS, RISP),
+               names_to = 'MESES', 
+               values_to = "Num Ocorrencias") %>%
+  arrange(RISP)
+
+head(dados_long_2021)
+```
+
+## __Explorando os dados__
+
+Podemos iniciar a análise visualizando o total de ocorrências para cada mês e comparar com os anos de 2020 e 2021. Para isso, é necessário agrupar os dados por meses.  
+
+```{r}
+#Vetor usado para ordenar os dados no eixo x
+ord_mts <- c("JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ")
+
+#Agrupando por meses, somando todos os casos e salvando em uma coluna
+casos_meses_2020 <- dados_long_2020 %>%
+  group_by(MESES) %>%
+  summarise(`OCORRENCIAS 2020` = sum(`Num Ocorrencias`)) %>%
+  arrange(factor(MESES, levels = ord_mts)) %>%
+  ungroup() 
+
+casos_meses_2021 <- dados_long_2021 %>%
+  group_by(MESES) %>%
+  summarise(`OCORRENCIAS 2021` = sum(`Num Ocorrencias`)) %>%
+  arrange(factor(MESES, levels = ord_mts)) %>%
+  ungroup()
+
+#Unindo as duas tabelas pela variável MESES
+jt_meses <- left_join(casos_meses_2020, casos_meses_2021, by = "MESES")
+jt_meses
+```
+
+Vamos ter que remodelar a tabela __jt_meses__ para que o ggplot possa diferenciar dados que são referentes ao ano de 2020 e de 2021. Vamos transformar os nomes das nossas colunas __OCORRENCIAS 2020__ e __OCORRÊNCIAS 2021__ em dados de uma coluna nova coluna, fazendo a relação dela com a quantidade de casos para cada mês. 
+
+```{r}
+resh_dados_meses <- reshape2::melt(jt_meses, id.vars = "MESES")
+```
+
+Agora podemo gerar um gráfico de colunas comparando os casos de 2020 e 2021 para cada mês do ano. O resultado do gráfico deixa claro que o isolamento forçado devido ao aumento significativo no número de casos de pessoas infectadas com o vírus da covid-19 forçou as pessoas a ficarem em casa, porém não significou que os casos foram reduzidos drásticamentes, pois muitos casos devem ter sido relatados dentro da própria residência pelo companheiro.
+
+```{r out.width="90%", message=FALSE, echo=F}
+theme_set(theme_classic())
+
+ggplot(resh_dados_meses, aes(factor(MESES, 
+                                    levels = ord_mts), 
+                             value,  
+                             fill = variable)) +
+  geom_col(position = "dodge", 
+           width = 0.8) +
+  labs(title = "Estupros - Estado do Pará",
+       subtitle = "Casos por meses do ano",
+       caption = "Fonte:Segup-PA",
+       fill = 'Ano:') +
+  scale_fill_viridis(alpha = 0.8,
+                     begin = 0.2, 
+                     end = 0.4,
+                     discrete = T, 
+                     direction = -1,
+                     labels = c("2020", "2021")) +
+  geom_text(aes(label = value, 
+                vjust = 1.5, 
+                hjust = if_else(variable == "OCORRENCIAS 2020", 
+                                1.13, 
+                                -0.13),
+                fontface = "bold"),
+                size = 2.5,
+                colour = "white") +
+  theme(legend.position = "top", 
+        legend.direction = "horizontal") +
+  theme(axis.ticks.y = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.line.y = element_blank()) +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_text(vjust = 8,
+                                   face = "bold")) +
+  theme(axis.title.x = element_blank())
+```
+
+É interessante destacar o grande aumento de casos no ano de 2021 quando comparado com o ano anterior. Essa percepção fica bem clara quando analisamos os meses de março, abril, maio e junho conforme o gráfico abaixo. 
+
+```{r out.width="90%", message=FALSE, warning=F, echo=FALSE}
+ggplot(resh_dados_meses, aes(factor(MESES, 
+                                    levels = ord_mts), 
+                             value,  
+                             fill = variable)) +
+  geom_col(position = "dodge", 
+           width = 0.8) +
+  gghighlight(MESES %in% c("MAR", "ABR", "MAI", "JUN")) +
+  labs(title = "Estupros - Estado do Pará",
+       subtitle = "Casos por meses do ano",
+       caption = "Fonte:Segup-PA",
+       fill = 'Ano:') +
+  scale_fill_viridis(alpha = 0.8,
+                     begin = 0.2, 
+                     end = 0.4,
+                     discrete = T, 
+                     direction = -1,
+                     labels = c("2020", "2021")) +
+  geom_text(aes(label = value, 
+                vjust = 1.5, 
+                hjust = if_else(variable == "OCORRENCIAS 2020",  
+                                1.13, 
+                                -0.13),
+                fontface = "bold"),
+                size = 2.5,
+                colour = "white") +
+  theme(legend.position = "top", 
+        legend.direction = "horizontal") +
+  theme(axis.ticks.y = element_blank(), 
+        axis.text.y = element_blank(),
+        axis.title.y = element_blank(),
+        axis.line.y = element_blank()) +
+  theme(axis.line.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_text(vjust = 8,
+                                   face = "bold")) +
+  theme(axis.title.x = element_blank()) 
+```
+
+Podemos também analisar o total de casos considerando cada RISP. Para isso, precisamos criar novas tabelas de dados por meio de agrupamentos por RISPs. Então, podemos gerar um gráfico interativo que relaciona o número de casos totais para cada RISPs ao longo dos anos de 2020 e 2021. 
+
+
+```{r echo=FALSE}
+#Agrupando por risps, somando todos os casos e salvando em uma coluna
+casos_risps_2020 <- dados_long_2020 %>%
+  group_by(RISP) %>%
+  summarise(`OCORRENCIAS 2020` = sum(`Num Ocorrencias`)) %>%
+  arrange(RISP) %>%
+  ungroup() 
+
+casos_risps_2021 <- dados_long_2021 %>%
+  group_by(RISP) %>%
+  summarise(`OCORRENCIAS 2021` = sum(`Num Ocorrencias`)) %>%
+  arrange(RISP) %>%
+  ungroup()
+
+#Unindo as duas tabelas pela variável RISP
+jt_risp <- left_join(casos_risps_2020, casos_risps_2021, by = "RISP")
+
+#remodelando a tabela em função de risps
+resh_dados_risp <- reshape2::melt(jt_risp, id.vars = "RISP")
+```
+
+
+```{r out.width="90%", warning=FALSE, message=FALSE, echo=FALSE}
+gp <- ggplot(resh_dados_risp, 
+             aes(RISP, 
+                 value,  
+                 fill = if_else(variable == "OCORRENCIAS 2020", 
+                                "2020", 
+                                "2021"),
+                 text = paste0(resh_dados_risp$value, " casos"))) +
+  geom_col(position = position_dodge2(), 
+           width = 0.8) +
+  labs(fill = 'Ano:') +
+  coord_flip() +
+  scale_fill_viridis(alpha = 0.8,
+                     begin = 0.2, 
+                     end = 0.4,
+                     discrete = T, 
+                     direction = -1) +
+  scale_y_continuous(breaks = seq(0, 600, 50), 
+                     expand = c(0,0))+
+  theme_classic() +
+  theme(axis.ticks.y = element_blank(), 
+        axis.text.y = element_text(face = "bold"),
+        axis.title.y = element_blank(),
+        axis.line.y = element_blank(),
+        axis.title.x = element_blank()) 
+
+#Geracao do grafico interativo
+ggplotly(gp, tooltip = "text") %>% 
+  layout(title = list(text = paste0("Estupros - Estado do Pará",
+                                     "<br>",
+                                     "<sup>",
+                                     "Casos por RISPs",
+                                     "</sup>"),
+                              x = 0.04)) %>%
+  layout(margin = list(t = 60)) %>%
+  layout(legend = list(orientation = "h",
+                       x = 0.4,
+                       y = 1.05)) 
+```
+
+Podemos ver que algumas RISPs se destacam em relação a outras, isso devido ao fato de elas terem dentro da sua região de abrangência municípios relevantes principalmente quando se considera a quantidade de habitantes. 
+
+
+Uma outra análise que podemos fazer é verificar o total de casos em 2020 e 2021 para todos os municipios do estado. Então, podemos começar nossa análise verificando a porcentagem de aumento ou diminuição de casos em todos os municípios. 
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+#Calcular o total de casos no ano para cada municipio
+casos_municipios_2020 <- dados_long_2020 %>%
+  group_by(MUNICIPIOS) %>%
+  summarise(`OCORRENCIAS 2020` = sum(`Num Ocorrencias`),
+            RISP = unique(RISP),
+            .groups = "drop")%>%
+  arrange(MUNICIPIOS) %>%
+  ungroup() 
+
+casos_municipios_2021 <- dados_long_2021 %>%
+  group_by(MUNICIPIOS) %>%
+  summarise(`OCORRENCIAS 2021` = sum(`Num Ocorrencias`),
+            RISP = unique(RISP),
+            .groups = "drop")%>%
+  arrange(MUNICIPIOS) %>%
+  ungroup()
+
+```
+
+
+```{r , warning=FALSE, message=FALSE, echo=FALSE}
+#Criando a base com os dados dos municipios junto com o resultado comparativo e o aumento ou redução percentual
+jt_mun <- left_join(casos_municipios_2020, casos_municipios_2021, by = c("RISP","MUNICIPIOS"))
+
+casos_municipios <- jt_mun %>%
+  select(MUNICIPIOS, `OCORRENCIAS 2020`, `OCORRENCIAS 2021`) %>%
+  rename(`2020` = `OCORRENCIAS 2020`, `2021` = `OCORRENCIAS 2021`) %>%
+  mutate(COMPARATIVO = (`2021`-`2020`),
+         `VARIACAO %` =   if_else(COMPARATIVO == 0, 0,
+                                 if_else(`2020` == 0, 0, round(((`2021`-`2020`)/`2020`)*100, 2))))
+
+```
+
+
+A tabela abaixo apresenta bem as variações de casos entre os municípios. Alguns municípios tiveram aumentos significativos como no caso de Oéiras do Pará que teve um aumento de 153% no número de casos registrados, passando de 13 casos em 2020 para 33 em 2021. Existem também os municípios que tiveram reduções consideráveis como o municípios de Curionópolis que reduziu em 79% indo de 24 casos em 2020 para 5 em 2021.
+
+```{r , warning=FALSE, message=FALSE, echo=FALSE}
+txc_verde = "#71CA97" #verde para redução
+txc_vermelho = "#ff7f7f" # vermelho para aumento
+
+#Funcao formatadora, define cores para o texto e icone seta para aumento ou reducao no numero de casos
+porcent_format <- formatter("span",
+                                   style = x ~ style(
+                                     font.weight = "bold",
+                                     color = ifelse(x > 0,
+                                                    txc_verde,                                                                             ifelse(x < 0,                                                                                 txc_vermelho,                                                                      "black"))),
+                                          x ~ icontext(ifelse(x > 0, 
+                                                              "arrow-up",
+                                                              ifelse(x < 0,
+                                                              "arrow-down",
+                                                              "")), x
+                                                       )
+                            )
+
+formattable(casos_municipios,
+            align = c("l", "c", "c", "c", "r"),
+            list(`VARIACAO %` = porcent_format)
+            )
+
+```
+
+Também podemos tentar ver o comportamento dos casos filtrando apenas os municípios com os maiores números de casos ao longo dos anos em cada RISP. Para isso, precisamos gerar novas tabelas. Então, vamos criar tabelas para o total deo ocorrências por cada município e depois filtrar os municípios que tiveram as maiores ocorrências ao longo dos anos de 2020 e 2021.
+
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+#Obter os municipios com maiores casos dentro de cada RISP
+max_casos_mun_2020 <- casos_municipios_2020 %>%
+  group_by(RISP, MUNICIPIOS) %>%
+    summarise(`2020` = max(`OCORRENCIAS 2020`), .groups = "drop_last") %>%
+    filter(`2020` == max(`2020`)) %>%
+    arrange(RISP) %>%
+    ungroup() 
+
+max_casos_mun_2021 <- casos_municipios_2021 %>%
+  group_by(RISP, MUNICIPIOS) %>%
+    summarise(`2021` = max(`OCORRENCIAS 2021`), .groups = "drop_last") %>%
+    filter(`2021` == max(`2021`)) %>%
+    arrange(RISP) %>%
+    ungroup() 
+
+jt_max_mun <- left_join(max_casos_mun_2020, max_casos_mun_2021, by = "RISP") 
+
+names(jt_max_mun)[2] <- "MUNICIPIOS-2020" 
+names(jt_max_mun)[4] <- "MUNICIPIOS-2021"
+
+DT::datatable(jt_max_mun) 
+```
+É importante destacar que alguns municípios tiveram aumentos significativos como no caso de Castanhal que em 2020 registrou 65 casos de estupros, mas em 2021 esse número aumentou para 123 casos. 
+
+
+Além disso, podemos ver na tabela que ocorreram algumas trocas de posições entre municípios em determinadas RISPs, conforme destacado na tabela abaixo. A RISP 05 é um exemplo do ocorrido, pois em 2020 tinhamos Soure como destaque por ter contabilizado o maior número de ocorrências registradas entre os demais municípios pertencentes ao RISP 05, já em 2021 tivemos Ponta de Pedras como sendo o destaque na mesma RISP.  
+
+```{r, echo=F}
+DT::datatable(jt_max_mun) %>%
+  DT::formatStyle('RISP',
+                  target = "row",
+                  backgroundColor = DT::styleEqual(c("05RISP", 
+                                                     "08RISP", 
+                                                     "13RISP"), 
+                                                   '#d9d2e9'))
+```
+
+## __Conclusão__
+
+Este trabalho meramente descritivo e com objetivos acadêmicos teve como objetivo realizar um estudo simples sobre o comportamento dos casos de estupros no ano de 2020, ano este em que tivemos uma mudança de comportamento mundial devido a pandemia do novo corona vírus. Também fizemos uma comparação com os casos no ano posterior (2021). Os resultados deixaram claros que houve uma queda significativa nos primeiros meses de 2020 assim que foi declarado o isolamento social. Entretanto, os casos voltaram a aumentar entre os meses de junho a dezembro. Em relação ao ano de 2021, ficou claro que os casos aumentaram significativamente ao longo de todo o ano muito pelo fato dos relaxamentos das medidas de restrição social. É importante destacar que o mesmo não foi validado por um especialista, portanto os argumentos presentes podem ser superficiais, contudo as realizações são pertinentes. Trabalhos futuros podem realizar comparações com dados do ano de 2019 para informar o comportamento antes, durante e após o ano de início da pandemia. Os dados compartilhados também permitem realizar diversas outras análises e gráficos.   
+
