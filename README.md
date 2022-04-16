@@ -12,7 +12,7 @@ Este trabalho teve como objetivo realizar uma análise exploratória em dados so
 
 ## Metodologia
 
-Os dados utilizados foram coletados da página do portal da transparência da SEGUP-PA usando técnica de Webscraping sendo salvos em arquivos no formato .csv e compartilhados para facilitar futuras análises. Os processo de coleta, tratamento, manipulação e exibição dos dados foram feito por meio da linguagem de programação R. Também foi gerado um relatório através da biblioteca RMarkdown para permitir uma visualização em qualquer navegador Web. Os resultados foram apresentados em formatos de gráficos estáticos e interativos bem como por meio de tabelas interativas. 
+Os dados utilizados foram coletados da página do portal da transparência da SEGUP-PA usando técnica de Webscraping sendo salvos em arquivos no formato .csv e compartilhados para facilitar futuras análises. Os processo de coleta, tratamento, manipulação e exibição dos dados foram feito por meio da linguagem de programação R. Também foi gerado um relatório através da biblioteca RMarkdown para proporcionar uma melhor experiência por meio da visualização em qualquer navegador Web. Os resultados foram apresentados em formatos de gráficos estáticos e interativos bem como por meio de tabelas interativas. 
 
 ## Resultados
 
