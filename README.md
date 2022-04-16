@@ -21,6 +21,10 @@ Aqui temos uma sintese dos resultados gerados por meio da análise dos dados. Pa
 1. Gráfico: Casos de estupros contabilizados para os meses dos anos de 2020 e 2021
 
 ![](docs/g_est_tot_meses.png)
+
+<br>
+<br>
+
 ![](docs/g_est_tot_meses_res.png)
 
 2. Gráfico: Casos de estupros contabilizados por RISPs nos anos de 2020 e 2021
