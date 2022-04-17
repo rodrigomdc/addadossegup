@@ -1,6 +1,6 @@
 ---
 title: "Análise Exploratória de Dados sobre casos de estupros no estado do Pará durante o período da pandemia"
-author: "Rodrigo"
+author: "Rodrigo Medeiros"
 date: "01/04/2022"
 output: html_document
     
@@ -77,8 +77,8 @@ library(formattable)
 Vamos carregar os dados fazendo a leitura dos arquivos .csv
 
 ```{r}
-dados_2020 <- read.csv("Data/ocorrencia de estupros - pa 2020.csv")
-dados_2021 <- read.csv("Data/ocorrencia de estupros - pa 2021.csv")
+dados_2020 <- read.csv("data/ocorrencia de estupros - pa 2020.csv")
+dados_2021 <- read.csv("data/ocorrencia de estupros - pa 2021.csv")
 ```
 
 <br></br>
@@ -371,13 +371,13 @@ porcent_format <- formatter("span",
                                    style = x ~ style(
                                      font.weight = "bold",
                                      color = ifelse(x > 0,
-                                                    txc_verde,                                                                             ifelse(x < 0,                                                                                 txc_vermelho,                                                                      "black"))),
+                                                    txc_vermelho,                                                                             ifelse(x < 0,                                                                                  txc_verde,                                                                                     "black"))),
                                           x ~ icontext(ifelse(x > 0, 
                                                               "arrow-up",
                                                               ifelse(x < 0,
                                                               "arrow-down",
-                                                              "")), x
-                                                       )
+                                                              "")
+                                                              ), x)
                             )
 
 formattable(casos_municipios,
